@@ -29,7 +29,7 @@ for i=1:events
 end
 % Condition for invalid simulation setup, e.g., too many nodes for given workload
 if any(Tk<0)
-    fprintf('Simulation not valid; there is negative cycle period.\n')
+    fprintf('Simulation not valid; negative cycle period found.\n')
     fprintf('Please alter initial inputs, e.g., increase workload...\n')
     return
 end
