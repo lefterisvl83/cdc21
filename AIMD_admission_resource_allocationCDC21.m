@@ -4,15 +4,19 @@ clc
 %
 %%%%%%%% ENTER INPUTS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 tol = .01;                  % tolerance used below in the big for loop %
-num_vm = 4;                 % number of nodes                          %                  
-uk0 = [0 5 10 20]';       % initial admission rates                  %        
-wk0 = [5 10 15 20]'*1.5;    % initial queued requests                  %        
-lambda = 100;               % workload                                 %
-alfa = [1 2 3 4]'*5;        % alfa_i                                   %
-veta = [.5 .5 .5 .5]';      % beta_i                                   %
-events = 25;                % number of events                         %
+% uk0 = [0 5 10 20]';       % initial admission rates                  %    
+uk0 = rand(100,1)*1;        % >> >>                                    %
+% wk0 = [5 10 15 20]'*1.5;  % initial queued requests                  %
+wk0 = rand(100,1)*10;       % >> >>                                    %
+lambda = 2000;              % workload                                 %
+% alfa = [1 2 3 4]'*5;      % alfa_i                                   %
+alfa = rand(100,1)*1;       % >> >>                                    %
+% veta = [.5 .5 .5 .5]';    % beta_i                                   %
+veta = rand(100,1);         % >> >>                                    %
+events = 100;               % number of events                         %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
+n = length(veta); % number of nodes
 uk = []; % admission
 uk(:,1) = uk0;
 wk = []; % queued requests
@@ -23,8 +27,15 @@ for i=1:events
     Tk(i) = 2*(lambda - veta'*uk(:,i))/(sum(alfa));
     uk(:,i+1) = diag(veta)*uk(:,i) + alfa*Tk(i);
 end
+% Condition for invalid simulation setup, e.g., too many nodes for given workload
+if any(Tk<0)
+    fprintf('Simulation not valid; there is negative cycle period.\n')
+    fprintf('Please alter initial inputs, e.g., increase workload...\n')
+    return
+end
+%
 figure(1) % Maximum admission rates ui(k)
-for i = 1:4
+for i = 1:n
     plot(1:events, uk(i,1:events), 'LineWidth', 2)
     xlabel('Events','FontSize', 18)
     ylabel('$u_{i}(k)$','Interpreter','latex', 'FontSize', 18)
@@ -34,13 +45,13 @@ for i = 1:4
     grid on
     hold on
 end
+%
 figure(2) % Cycle Period T(k)
 plot(1:events, Tk(1:events), 'LineWidth', 2)
 xlabel('Events','FontSize', 18)
 ylabel('$T(k)$', 'Interpreter', 'latex', 'FontSize', 18)
 title('Cycle Period','FontSize', 18)
 grid on
-%
 %
 Tkcum = []; % actual time instants at which events occur
 Tkcum(1) = Tk(1);
@@ -53,7 +64,7 @@ t_cont = 0:.01:Tkcum(end);
 interv = length(t_cont);
 u_cont = []; 
 u_cont(:,1) = uk(:,1);
-w_cont = zeros(4,interv);
+w_cont = zeros(n,interv);
 w_cont(:,1) = wk(:,1);
 gkamak = [];
 gkamak(:,1) = diag(veta)*uk(:,1) + sqrt(2*alfa).*sqrt(wk(:,1)); %%%
@@ -64,7 +75,7 @@ for i = 1:interv
         u_cont(:,i) = diag(veta)*uk(:,j-1) + alfa*(t_cont(i)-Tkcum(j-1));
         w_cont(:,i) = floor(wk(:,j-1) + diag(veta)*uk(:,j-1).*(t_cont(i)-Tkcum(j-1))...
            + .5*alfa*(t_cont(i)-Tkcum(j-1))*(t_cont(i)-Tkcum(j-1)) ...
-            - gkamak(:,j-1)*(t_cont(i)-Tkcum(j-1))); % USE ceil() for realistic!!!
+            - gkamak(:,j-1)*(t_cont(i)-Tkcum(j-1))); % USE floor() for realistic!!!
     else
         if j == 1
             wk(:,j) = wk0;
@@ -83,7 +94,7 @@ end
 % Calculation of queueing time: .5(wi(k) + wi(k+1) / ( ui(k) + .5*ai*T(k) )
 Tqueueing = [];
 for i = 1:(events-1)
-    for j = 1:4
+    for j = 1:n
     Tqueueing(j,i) =  .5*(wk(j,i) + wk(j,i+1))/(uk(j,i) + .5*alfa(j)*Tk(i));
     end
 end
@@ -95,7 +106,7 @@ for i = 1:(events-1)
 end
 %
 figure(3) % number of queued requests at node-i
-for i = 1:4
+for i = 1:n
     plot(t_cont, w_cont(i,:), 'LineWidth', 1.5)
     xlabel('Time [sec]','FontSize', 18)
     ylabel('$w_{i}(t)$','Interpreter','latex', 'FontSize', 18)
@@ -108,7 +119,7 @@ end
 hold off
 %
 figure(4) % continuous-time admission rates
-for i = 1:4
+for i = 1:n
     plot(t_cont, u_cont(i,:), 'LineWidth', 1.5)
     xlabel('Time [sec]','FontSize', 18)
     ylabel('$u_{i}(t)$','Interpreter','latex', 'FontSize', 18)
@@ -121,27 +132,26 @@ end
 hold off
 %
 j = 1;
-C = {'b','r','g','m',[.5 .6 .7],[.8 .2 .6]}; % Cell array of colors.
+col = gray(n+1);
 figure(5) % resource allocation gamma(k) (constant throughout cycles)
-for i = 1:4
-    plot(1:events, gkamak(i,1:events),'-', 'LineWidth', 1.5, 'color', C{i})
+for i = 1:n
+    plot(1:events, gkamak(i,1:events),'-', 'LineWidth', 1.5, 'color', col(i,:));
     legtxt{j} = ['node-', num2str(i)]; 
     hold on
     j = j + 1;
-    plot( 1:(events-1), uk_av(i,1:(events-1)),'--', 'LineWidth', 1.5, 'color', C{i})
+    plot( 1:(events-1), uk_av(i,1:(events-1)),'--', 'LineWidth', 1.5, 'color', col(i,:))
     legtxt{j} = ['node-', num2str(i)];
     j = j + 1;
     xlabel('Events','FontSize', 18)
     ylabel('$\gamma_{i}(k), u_{i}^{\mathbf{av}}(k)$','Interpreter','latex', 'FontSize', 18)
     title('Service and average admission rates','FontSize', 18)
-%     leg_text{i}=['node-', num2str(i)]; 
     legend(legtxt)
     grid on
 end
 hold off
 %
 figure(6) % Queueing time associated with each node
-for i = 1:4
+for i = 1:n
     plot(1:(events-1), Tqueueing(i,:), 'LineWidth', 1.5)
     xlabel('Events','FontSize', 18)
     ylabel('$T_{i}(k)$','Interpreter','latex', 'FontSize', 18)
